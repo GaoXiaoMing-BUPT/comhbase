@@ -19,7 +19,7 @@
  * 8.  删除数据
  * org.apache.hadoop.hbase.util.* 包含大量工具类
  **/
-package com.hbase;
+package com.hbase.basic;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -52,8 +52,8 @@ import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.apache.hadoop.hbase.util.Bytes;
 
 
-public class HBaseDao {
-    private static final Log logger = LogFactory.getLog(HBaseDao.class);
+public class HBaseDemo {
+    private static final Log logger = LogFactory.getLog(HBaseDemo.class);
     private static final String TABLE_NAME = "ns:student";
     private static final String BASE_INFO = "base_info";
     private static final String EXTRA_INFO = "extra_info";
@@ -97,7 +97,7 @@ public class HBaseDao {
         //9. scan获取全部数据测试
         scanTable(NAME_SPACE + ":" + "student");
         //10. 数据删除操作测试
-        deleteData(NAME_SPACE + ":" + "student","0001",BASE_INFO,"name");
+        //deleteData(NAME_SPACE + ":" + "student","0001",BASE_INFO,"name");
         close(admin, connection);
 
     }
