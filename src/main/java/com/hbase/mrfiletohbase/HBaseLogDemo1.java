@@ -6,6 +6,7 @@
  * To change this template use File | Settings | File Templates.
  * Description:
  * 从文本读取数据然后写入HBase
+ * 此处需要单独设置打包生产的主类，从文本读取数据输出到HBase
  * 1.   正常map读取数据
  * 2.   继承HTableReducer
  * 3.   三个泛型，最后一个已经写死（Mutation）写入HBase
@@ -13,7 +14,7 @@
  * 5.   修改Key，直接从全局的上下文context读取  重写setup和cleanup即可
  * 6.   在run中加入hdfs和yarn的配置文件，利用conf.addResource 加入HBase的配置文件
  **/
-package com.hbase.mapreduce;
+package com.hbase.mrfiletohbase;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -37,11 +38,11 @@ import org.apache.hadoop.util.ToolRunner;
 
 import java.io.IOException;
 
-public class HBaseMR extends Configured implements Tool {
+public class HBaseLogDemo1 extends Configured implements Tool {
     private static String rowKey = null;
     private static final String TABLE_NAME = "log";
     private static Configuration conf = null;
-    private static final Log logger = LogFactory.getLog(HBaseMR.class);
+    private static final Log logger = LogFactory.getLog(HBaseLogDemo1.class);
     private Configuration configuration = null;
     private static class LogMapper extends Mapper<LongWritable, Text, LongWritable, Text> {
         @Override
@@ -82,7 +83,7 @@ public class HBaseMR extends Configured implements Tool {
         Job job = Job.getInstance();
         job.setJobName("测试Log的文件写入HBase");
         //2. 设置驱动类路径
-        job.setJarByClass(HBaseMR.class);
+        job.setJarByClass(HBaseLogDemo1.class);
         //3. 加载jar文件
         job.setJar("out\\artifacts\\comhbase_jar\\comhbase.jar");
         //3. 设置Mapper类及输出KV类型
@@ -100,11 +101,11 @@ public class HBaseMR extends Configured implements Tool {
         boolean result = job.waitForCompletion(true);
         return result?0:1;
     }
-    HBaseMR(){
+    HBaseLogDemo1(){
         //1. 获取hdfs yarn的配置文件
-        configuration = new Configuration();
+        //configuration = new Configuration();
         //2. 获取HBase的配置文件
-        configuration.addResource(HBaseConfiguration.create());
+        configuration.addResource(HBaseConfiguration.create());// 底层已经调用了 hdfs MapReduce的配置读取
         //3. 配置信息传入ToolRunner供其调用
         this.setConf(configuration);
         //4. 测试是否获取到配置信息
@@ -120,7 +121,7 @@ public class HBaseMR extends Configured implements Tool {
         try {
             //4. 利用ToolRunner.run 运行
             //ToolRunner.run(conf,new HBaseMR(),strings);
-            ToolRunner.run(new HBaseMR(),strings);
+            ToolRunner.run(new HBaseLogDemo1(),strings);
         } catch (Exception e) {
             logger.error("run error",e);
         }
