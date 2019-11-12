@@ -30,6 +30,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
+import org.apache.hadoop.hbase.ClusterMetrics;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.NamespaceDescriptor;
 import org.apache.hadoop.hbase.NamespaceExistException;
@@ -98,6 +99,9 @@ public class HBaseDemo {
         scanTable(NAME_SPACE + ":" + "student");
         //10. 数据删除操作测试
         //deleteData(NAME_SPACE + ":" + "student","0001",BASE_INFO,"name");
+        ClusterMetrics clusterMetrics = admin.getClusterMetrics();
+
+        logger.info(clusterMetrics);
         close(admin, connection);
 
     }
@@ -170,10 +174,10 @@ public class HBaseDemo {
         try {
             //5. 新建表
             if (!isTableExist(tableName)) //不存在则新建 否则插入列族即可
-
                 admin.createTable(tableDescriptor);
             else
                 logger.info(tableName + " exits, insert columnFamily");
+
         } catch (IOException e) {
             logger.error(tableName + " creates fail", e);
             return;
@@ -339,22 +343,22 @@ public class HBaseDemo {
     }
 
     /* 注意区分 Delete 的 addColumn和addColumns的区别 */
-    public static void deleteData(String tableName,String rowKey,String columnFamily,String columnName){
+    public static void deleteData(String tableName, String rowKey, String columnFamily, String columnName) {
         try {
             //1. 获取表对象
             Table table = connection.getTable(TableName.valueOf(tableName));
             //2. 获取删除对象，不进行任何设置则为 rowKey级别的删除即 命令行的 deleteAll
             Delete delete = new Delete(Bytes.toBytes(rowKey));
             //2.1 删除指定的列
-            delete.addColumn(Bytes.toBytes(columnFamily),Bytes.toBytes(columnName));    //删除最新的版本，传入时间戳，则删除指定时间戳  后续版本成为了最新版本
-            delete.addColumns(Bytes.toBytes(columnFamily),Bytes.toBytes(columnName)); //删除所有版本，传入时间戳时，表示删除小于当前时间戳的所有版本
+            delete.addColumn(Bytes.toBytes(columnFamily), Bytes.toBytes(columnName));    //删除最新的版本，传入时间戳，则删除指定时间戳  后续版本成为了最新版本
+            delete.addColumns(Bytes.toBytes(columnFamily), Bytes.toBytes(columnName)); //删除所有版本，传入时间戳时，表示删除小于当前时间戳的所有版本
             //3. 执行删除操作
             table.delete(delete);
             //4. 资源回收
             table.close();
 
         } catch (IOException e) {
-            logger.error(tableName + " delete data fail",e);
+            logger.error(tableName + " delete data fail", e);
         }
     }
 

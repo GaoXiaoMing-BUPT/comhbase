@@ -26,12 +26,14 @@ import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.mapreduce.TableInputFormat;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.hbase.mapreduce.TableReducer;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapred.Task;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.util.Tool;
@@ -39,6 +41,7 @@ import org.apache.hadoop.util.ToolRunner;
 
 
 import java.io.IOException;
+import java.util.List;
 
 public class HBaseLogDemo2 extends Configured implements Tool {
     private static final String SRC_TABLE_NAME = "log";
@@ -52,41 +55,69 @@ public class HBaseLogDemo2 extends Configured implements Tool {
             Put put = new Put(key.get());
             //1. 获取数据
             Cell[] cells = value.rawCells();
+            boolean c1 = false;
+            boolean c2 = false;
+            double downFlow = 0d;
+            double upFlow = 0d;
             //不同列在不同的循环
             for (Cell cell : cells) {
-                double downFlow = 0d;
-                double upFlow = 0d;
-
                 //2.    判断当前cell是否为 需要的列 rowKey = phone,columnFamily = info,column = down_flow,column = up_flow
                 //2.1   获取downFlow
                 if (Bytes.toString(CellUtil.cloneQualifier(cell)).equals("down_flow")) {
                     downFlow = Double.parseDouble(Bytes.toString(CellUtil.cloneValue(cell)));
+                    put.add(cell);
+                    c1 = true;
                 }//2.2   获取up_flow
                 else if (Bytes.toString(CellUtil.cloneQualifier(cell)).equals("up_flow")) {
                     upFlow = Double.parseDouble(Bytes.toString(CellUtil.cloneValue(cell)));
+                    c2 = true;
+                }
+                if (c1 & c2){
                     //3. 给 put 对象赋值 可以直接传cell 求down_flow和up_flow的平均值
                     put.add(cell);
                     //4. 新增列
                     put.addColumn(Bytes.toBytes("info"), Bytes.toBytes("average_flow"), Bytes.toBytes((downFlow + upFlow) / 2 + ""));
+                    c1 = c2 = false;
+                    downFlow = 0;
+                    upFlow = 0;
                 }
             }
             //5. 输出到reducer，输出行数时直接使key相同即可，然后reduce对key进行计数
+            ImmutableBytesWritable keyNew = new ImmutableBytesWritable(Bytes.toBytes(Bytes.toString(key.get()).substring(0,4)));
+            context.write(keyNew, put);
 
-            context.write(key, put);
         }
     }
     private static class LogReducer extends TableReducer<ImmutableBytesWritable, Put, NullWritable> {
         @Override
         protected void reduce(ImmutableBytesWritable key, Iterable<Put> values, Context context) throws IOException, InterruptedException {
             //遍历写出
-            Put put = new Put(key.get());
-
             for (Put value : values) {
                 context.write(NullWritable.get(), value);
             }
         }
     }
-
+    private static class LogCombiner extends TableReducer<ImmutableBytesWritable, Put, ImmutableBytesWritable>{
+        @Override
+        protected void reduce(ImmutableBytesWritable key, Iterable<Put> values, Context context) throws IOException, InterruptedException {
+            //1. 定义平均流量初始值
+            double maxAverageFlow = 0d;
+            Put put = new Put(key.get());
+            for (Put value : values) {
+                //2. 获取每个rowKey所对应的average_flow的value
+                List<Cell> cells = value.get(Bytes.toBytes("info"), Bytes.toBytes("average_flow"));
+                for (Cell cell : cells) {
+                    //3. 获取
+                    if (Double.parseDouble(Bytes.toString(CellUtil.cloneValue(cell))) > maxAverageFlow){
+                        //4. 存入最大的平均流量put对象
+                        put = value;
+                    }
+                }
+            }
+            //5. 写入Reducer
+            context.write(key,put);
+        }
+    }
     @Override
     public int run(String[] strings) throws Exception {
         //1. 获取job对象及任务名称
@@ -98,8 +129,11 @@ public class HBaseLogDemo2 extends Configured implements Tool {
         TableMapReduceUtil.initTableMapperJob(SRC_TABLE_NAME, new Scan(), LogMapper.class, ImmutableBytesWritable.class, Put.class, job);
         //4. 设置reducer类及输入输出的表
         TableMapReduceUtil.initTableReducerJob(DST_TABLE_NAME, LogReducer.class, job);
+
         //5. 由于读写均在HBase，此处不需要设置输入输出路径,此处设置Jar包传入
         job.setJar("out\\artifacts\\comhbase_jar\\comhbase.jar");
+        //6. 设置combiner大量解决数据倾斜问题
+        job.setCombinerClass(LogCombiner.class);
 
         return job.waitForCompletion(true) ? 0 : 1;
     }
@@ -113,6 +147,7 @@ public class HBaseLogDemo2 extends Configured implements Tool {
     }
 
     public static void main(String[] args) {
+        HBaseDemo.dropTable(DST_TABLE_NAME);
         HBaseDemo.createTable(DST_TABLE_NAME, "info");
         try {
             ToolRunner.run(new HBaseLogDemo2(), args);

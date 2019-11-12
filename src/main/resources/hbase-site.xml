@@ -36,4 +36,9 @@
 							<name>hbase.zookeeper.quorum</name>
 							<value>OVS2-zookeeper215:2181,OVS3-zookeeper225:2181,PMA1-zookeeper245:2181</value>
 						</property>
+						<!-- 增大客户端缓存，减少RPC调用次数，加快运行时间 -->
+						<property>
+							<name>hbase.client.write.buffer</name>
+							<value>200</value>
+						</property>
 </configuration>

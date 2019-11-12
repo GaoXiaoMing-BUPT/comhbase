@@ -99,7 +99,7 @@ public class HBaseLogDemo3 extends Configured implements Tool {
         return job.waitForCompletion(true) ? 0 : 1;
     }
 
-    HBaseLogDemo3() {
+    private HBaseLogDemo3() {
         //1. 读取 HDFS MapReduce HBase 的配置文件
         Configuration configuration = HBaseConfiguration.create();
         //2. 传入参数
@@ -107,6 +107,7 @@ public class HBaseLogDemo3 extends Configured implements Tool {
     }
 
     public static void main(String[] args) {
+
         try {
             ToolRunner.run(new HBaseLogDemo3(), args);
         } catch (Exception e) {
